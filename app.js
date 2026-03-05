@@ -60,7 +60,8 @@ function markDone(plantId, taskKey) {
 }
 
 function render() {
-  const dueDiv = document.getElementById("dueList");
+  const todayDiv = document.getElementById("todayList");
+  const soonDiv = document.getElementById("soonList");
   const listDiv = document.getElementById("plantList");
   dueDiv.innerHTML = "";
   listDiv.innerHTML = "";
@@ -73,11 +74,39 @@ function render() {
     const f = nextDate(p.lastFert, p.fertEvery);
     const r = nextMonth(p.lastRepot, p.repotEvery);
 
-    const tasksDue = [];
-    if (w && daysUntil(w) <= 0) tasksDue.push({ key: "water", label: "Water" });
-    if (m && daysUntil(m) <= 0) tasksDue.push({ key: "mist", label: "Mist" });
-    if (f && daysUntil(f) <= 0) tasksDue.push({ key: "fert", label: "Fertilize" });
-    if (r && daysUntil(r) <= 0) tasksDue.push({ key: "repot", label: "Repot" });
+    if(tasksDue.length){
+
+    const dueCard = document.createElement("div")
+    dueCard.className="card"
+
+    const dueLeft = document.createElement("div")
+    dueLeft.style.flex="1"
+    dueLeft.innerHTML=`<b>${p.name}</b><br>${tasksDue.map(t=>t.label).join(", ")}`
+    dueCard.appendChild(dueLeft)
+
+    const dueActions = document.createElement("div")
+    dueActions.style.display="flex"
+    dueActions.style.gap="8px"
+
+    tasksDue.forEach(t=>{
+        const b=document.createElement("button")
+        b.textContent=`Done: ${t.label}`
+        b.onclick=()=>markDone(p.id,t.key)
+        dueActions.appendChild(b)
+    })
+
+    dueCard.appendChild(dueActions)
+    todayDiv.appendChild(dueCard)
+
+} else {
+
+    const soonCard=document.createElement("div")
+    soonCard.className="card"
+    soonCard.innerHTML=`<b>${p.name}</b>`
+
+    soonDiv.appendChild(soonCard)
+
+}
 
     // --- All Plants card ---
     const card = document.createElement("div");
@@ -279,5 +308,6 @@ document.getElementById("photoInput").addEventListener("change", function(e) {
   };
   reader.readAsDataURL(file);
 });
+
 
 render();
