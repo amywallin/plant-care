@@ -1,180 +1,283 @@
-const STORAGE="plantApp"
+const STORAGE = "plantApp";
+let plants = JSON.parse(localStorage.getItem(STORAGE) || "[]");
+let editId = null;
 
-let plants=JSON.parse(localStorage.getItem(STORAGE)||"[]")
-
-let editId=null
-
-function saveData(){
-localStorage.setItem(STORAGE,JSON.stringify(plants))
+function saveData() {
+  localStorage.setItem(STORAGE, JSON.stringify(plants));
 }
 
-function daysUntil(date){
-if(!date) return null
-let today=new Date()
-let d=new Date(date)
-return Math.floor((d-today)/86400000)
+function todayISO() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
-function nextDate(last,days){
-if(!last||!days) return null
-let d=new Date(last)
-d.setDate(d.getDate()+Number(days))
-return d
+function daysUntil(dateObj) {
+  if (!dateObj) return null;
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const d = new Date(dateObj);
+  d.setHours(0,0,0,0);
+  return Math.floor((d - today) / 86400000);
 }
 
-function nextMonth(last,months){
-if(!last||!months) return null
-let d=new Date(last)
-d.setMonth(d.getMonth()+Number(months))
-return d
+function nextDate(lastISO, days) {
+  if (!lastISO || !days || Number(days) <= 0) return null;
+  const d = new Date(lastISO);
+  d.setDate(d.getDate() + Number(days));
+  return d;
 }
 
-function render(){
-
-let dueDiv=document.getElementById("dueList")
-let listDiv=document.getElementById("plantList")
-
-dueDiv.innerHTML=""
-listDiv.innerHTML=""
-
-plants.forEach(p=>{
-
-let tasks=[]
-
-let w=nextDate(p.lastWater,p.waterEvery)
-let m=nextDate(p.lastMist,p.mistEvery)
-let f=nextDate(p.lastFert,p.fertEvery)
-let r=nextMonth(p.lastRepot,p.repotEvery)
-
-if(w && daysUntil(w)<=0) tasks.push("Water")
-if(m && daysUntil(m)<=0) tasks.push("Mist")
-if(f && daysUntil(f)<=0) tasks.push("Fertilize")
-if(r && daysUntil(r)<=0) tasks.push("Repot")
-
-let card=document.createElement("div")
-card.className="card"
-
-let left=document.createElement("div")
-
-left.innerHTML=`<b>${p.name}</b><br>${p.location||""}`
-
-if(p.photo){
-let img=document.createElement("img")
-img.src=p.photo
-img.style.width="60px"
-img.style.borderRadius="8px"
-card.appendChild(img)
+function nextMonth(lastISO, months) {
+  if (!lastISO || !months || Number(months) <= 0) return null;
+  const d = new Date(lastISO);
+  d.setMonth(d.getMonth() + Number(months));
+  return d;
 }
 
-card.appendChild(left)
-
-let btn=document.createElement("button")
-btn.textContent="Edit"
-btn.onclick=()=>openPlant(p.id)
-
-card.appendChild(btn)
-
-listDiv.appendChild(card)
-
-if(tasks.length){
-
-let due=document.createElement("div")
-due.className="card"
-due.innerHTML=`${p.name}: ${tasks.join(", ")}`
-
-dueDiv.appendChild(due)
-
+// Seasonal watering: Mar–Sep = “summer”, Oct–Feb = “winter”
+function currentWaterDays(plant) {
+  const month = new Date().getMonth() + 1; // 1-12
+  const summer = Number(plant.waterSummer || 0);
+  const winter = Number(plant.waterWinter || 0);
+  return (month >= 3 && month <= 9) ? summer : winter;
 }
 
-})
-
+function markDone(plantId, taskKey) {
+  const t = todayISO();
+  plants = plants.map(p => {
+    if (p.id !== plantId) return p;
+    if (taskKey === "water") return { ...p, lastWater: t };
+    if (taskKey === "mist") return { ...p, lastMist: t };
+    if (taskKey === "fert") return { ...p, lastFert: t };
+    if (taskKey === "repot") return { ...p, lastRepot: t };
+    return p;
+  });
+  saveData();
+  render();
 }
 
-function openPlant(id){
+function render() {
+  const dueDiv = document.getElementById("dueList");
+  const listDiv = document.getElementById("plantList");
+  dueDiv.innerHTML = "";
+  listDiv.innerHTML = "";
 
-document.getElementById("plantModal").style.display="block"
+  plants.forEach(p => {
+    // Compute next dates
+    const waterDays = currentWaterDays(p);
+    const w = nextDate(p.lastWater, waterDays);
+    const m = nextDate(p.lastMist, p.mistEvery);
+    const f = nextDate(p.lastFert, p.fertEvery);
+    const r = nextMonth(p.lastRepot, p.repotEvery);
 
-if(!id){
-editId=null
-return
+    const tasksDue = [];
+    if (w && daysUntil(w) <= 0) tasksDue.push({ key: "water", label: "Water" });
+    if (m && daysUntil(m) <= 0) tasksDue.push({ key: "mist", label: "Mist" });
+    if (f && daysUntil(f) <= 0) tasksDue.push({ key: "fert", label: "Fertilize" });
+    if (r && daysUntil(r) <= 0) tasksDue.push({ key: "repot", label: "Repot" });
+
+    // --- All Plants card ---
+    const card = document.createElement("div");
+    card.className = "card";
+
+    // Photo thumbnail
+    if (p.photo) {
+      const img = document.createElement("img");
+      img.src = p.photo;
+      img.style.width = "64px";
+      img.style.height = "64px";
+      img.style.objectFit = "cover";
+      img.style.borderRadius = "8px";
+      img.style.marginRight = "10px";
+      card.appendChild(img);
+    }
+
+    const left = document.createElement("div");
+    left.style.flex = "1";
+    left.style.minWidth = "0";
+    left.innerHTML = `<b>${escapeHTML(p.name || "")}</b><br>${escapeHTML(p.location || "")}`;
+
+    card.appendChild(left);
+
+    // Actions: Water Now + Edit
+    const actions = document.createElement("div");
+    actions.style.display = "flex";
+    actions.style.gap = "8px";
+
+    const waterNowBtn = document.createElement("button");
+    waterNowBtn.textContent = "Water Now";
+    waterNowBtn.onclick = () => markDone(p.id, "water");
+
+    const editBtn = document.createElement("button");
+    editBtn.textContent = "Edit";
+    editBtn.onclick = () => openPlant(p.id);
+
+    actions.appendChild(waterNowBtn);
+    actions.appendChild(editBtn);
+
+    card.appendChild(actions);
+    listDiv.appendChild(card);
+
+    // --- Due list cards ---
+    if (tasksDue.length) {
+      const dueCard = document.createElement("div");
+      dueCard.className = "card";
+
+      const dueLeft = document.createElement("div");
+      dueLeft.style.flex = "1";
+      dueLeft.innerHTML = `<b>${escapeHTML(p.name || "")}</b><br>${tasksDue.map(t => t.label).join(", ")}`;
+      dueCard.appendChild(dueLeft);
+
+      const dueActions = document.createElement("div");
+      dueActions.style.display = "flex";
+      dueActions.style.gap = "8px";
+
+      // Show “Done” buttons for each due task
+      tasksDue.forEach(t => {
+        const b = document.createElement("button");
+        b.textContent = `Done: ${t.label}`;
+        b.onclick = () => markDone(p.id, t.key);
+        dueActions.appendChild(b);
+      });
+
+      // Quick edit
+      const e = document.createElement("button");
+      e.textContent = "Edit";
+      e.onclick = () => openPlant(p.id);
+      dueActions.appendChild(e);
+
+      dueCard.appendChild(dueActions);
+      dueDiv.appendChild(dueCard);
+    }
+  });
 }
 
-let p=plants.find(x=>x.id==id)
-editId=id
-
-plantName.value=p.name
-plantLocation.value=p.location
-waterEvery.value=p.waterEvery
-lastWater.value=p.lastWater
-mistEvery.value=p.mistEvery
-lastMist.value=p.lastMist
-fertEvery.value=p.fertEvery
-lastFert.value=p.lastFert
-repotEvery.value=p.repotEvery
-lastRepot.value=p.lastRepot
-notes.value=p.notes
-photoPreview.src=p.photo||""
-
+// Basic HTML escaping for safety
+function escapeHTML(str) {
+  return String(str).replace(/[&<>"']/g, s => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[s]));
 }
 
-function closePlant(){
-document.getElementById("plantModal").style.display="none"
+function openPlant(id) {
+  document.getElementById("plantModal").style.display = "block";
+
+  // Reset fields
+  plantName.value = "";
+  plantLocation.value = "";
+  waterSummer.value = "";
+  waterWinter.value = "";
+  lastWater.value = "";
+  mistEvery.value = "";
+  lastMist.value = "";
+  fertEvery.value = "";
+  lastFert.value = "";
+  repotEvery.value = "";
+  lastRepot.value = "";
+  notes.value = "";
+  photoPreview.src = "";
+  photoPreview.style.display = "none";
+
+  if (!id) {
+    editId = null;
+    document.getElementById("modalTitle").textContent = "Add Plant";
+    return;
+  }
+
+  const p = plants.find(x => x.id == id);
+  editId = id;
+  document.getElementById("modalTitle").textContent = "Edit Plant";
+
+  plantName.value = p.name || "";
+  plantLocation.value = p.location || "";
+  waterSummer.value = p.waterSummer || "";
+  waterWinter.value = p.waterWinter || "";
+  lastWater.value = p.lastWater || "";
+
+  mistEvery.value = p.mistEvery || "";
+  lastMist.value = p.lastMist || "";
+
+  fertEvery.value = p.fertEvery || "";
+  lastFert.value = p.lastFert || "";
+
+  repotEvery.value = p.repotEvery || "";
+  lastRepot.value = p.lastRepot || "";
+
+  notes.value = p.notes || "";
+
+  if (p.photo) {
+    photoPreview.src = p.photo;
+    photoPreview.style.display = "block";
+  }
 }
 
-function savePlant(){
-
-let plant={
-id:editId||Date.now(),
-name:plantName.value,
-location:plantLocation.value,
-waterEvery:waterEvery.value,
-lastWater:lastWater.value,
-mistEvery:mistEvery.value,
-lastMist:lastMist.value,
-fertEvery:fertEvery.value,
-lastFert:lastFert.value,
-repotEvery:repotEvery.value,
-lastRepot:lastRepot.value,
-notes:notes.value,
-photo:photoPreview.src
+function closePlant() {
+  document.getElementById("plantModal").style.display = "none";
 }
 
-if(editId){
-plants=plants.map(p=>p.id==editId?plant:p)
-}else{
-plants.push(plant)
+function savePlant() {
+  const plant = {
+    id: editId || Date.now(),
+    name: (plantName.value || "").trim(),
+    location: (plantLocation.value || "").trim(),
+
+    waterSummer: Number(waterSummer.value || 0),
+    waterWinter: Number(waterWinter.value || 0),
+    lastWater: lastWater.value || "",
+
+    mistEvery: Number(mistEvery.value || 0),
+    lastMist: lastMist.value || "",
+
+    fertEvery: Number(fertEvery.value || 0),
+    lastFert: lastFert.value || "",
+
+    repotEvery: Number(repotEvery.value || 0),
+    lastRepot: lastRepot.value || "",
+
+    notes: (notes.value || "").trim(),
+
+    // IMPORTANT: only store photo if it’s a data URL
+    photo: (photoPreview.src && photoPreview.src.startsWith("data:")) ? photoPreview.src : ""
+  };
+
+  if (!plant.name) {
+    alert("Please enter a plant name.");
+    return;
+  }
+
+  if (editId) {
+    plants = plants.map(p => p.id == editId ? plant : p);
+  } else {
+    plants.push(plant);
+  }
+
+  saveData();
+  render();
+  closePlant();
 }
 
-saveData()
-render()
-closePlant()
-
+function deletePlant() {
+  if (!editId) return;
+  plants = plants.filter(p => p.id != editId);
+  saveData();
+  render();
+  closePlant();
 }
 
-function deletePlant(){
+// Photo upload -> store as base64 data URL
+document.getElementById("photoInput").addEventListener("change", function(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
 
-if(!editId) return
+  const reader = new FileReader();
+  reader.onload = function() {
+    photoPreview.src = reader.result;
+    photoPreview.style.display = "block";
+  };
+  reader.readAsDataURL(file);
+});
 
-plants=plants.filter(p=>p.id!=editId)
-
-saveData()
-render()
-closePlant()
-
-}
-
-document.getElementById("photoInput").addEventListener("change",function(e){
-
-let file=e.target.files[0]
-
-let reader=new FileReader()
-
-reader.onload=function(){
-photoPreview.src=reader.result
-}
-
-reader.readAsDataURL(file)
-
-})
-
-render()
+render();
