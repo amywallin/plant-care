@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plant Care</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+<header>
+<h1>🌿 Plant Care</h1>
+<button onclick="openPlant()">+ Add Plant</button>
+</header>
+
+<section id="dueSection">
+<h2>Needs Attention</h2>
+<div id="dueList"></div>
+</section>
+
+<section>
+<h2>All Plants</h2>
+<div id="plantList"></div>
+</section>
+
+<div id="plantModal" class="modal">
+
+<div class="modalContent">
+
+<h2 id="modalTitle">Add Plant</h2>
+
+<input id="plantName" placeholder="Plant name">
+
+<input id="plantLocation" placeholder="Location">
+
+<label>Water every (days)</label>
+<input id="waterEvery" type="number">
+
+<label>Last watered</label>
+<input id="lastWater" type="date">
+
+<label>Mist every (days)</label>
+<input id="mistEvery" type="number">
+
+<label>Last misted</label>
+<input id="lastMist" type="date">
+
+<label>Fertilize every (days)</label>
+<input id="fertEvery" type="number">
+
+<label>Last fertilized</label>
+<input id="lastFert" type="date">
+
+<label>Repot every (months)</label>
+<input id="repotEvery" type="number">
+
+<label>Last repotted</label>
+<input id="lastRepot" type="date">
+
+<label>Photo</label>
+<input type="file" id="photoInput">
+
+<img id="photoPreview">
+
+<textarea id="notes" placeholder="Notes"></textarea>
+
+<div class="buttons">
+<button onclick="savePlant()">Save</button>
+<button onclick="deletePlant()">Delete</button>
+<button onclick="closePlant()">Cancel</button>
+</div>
+
+</div>
+
+</div>
+
+<script src="app.js"></script>
+
+</body>
+</html>
